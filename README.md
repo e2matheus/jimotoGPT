@@ -1,7 +1,9 @@
-# privateGPT
+# jimotoGPT
 Ask questions to your documents without an internet connection, using the power of LLMs. 100% private, no data leaves your execution environment at any point. You can ingest documents and ask questions without an internet connection!
 
 Built with [LangChain](https://github.com/hwchase17/langchain), [GPT4All](https://github.com/nomic-ai/gpt4all), [LlamaCpp](https://github.com/ggerganov/llama.cpp), [Chroma](https://www.trychroma.com/) and [SentenceTransformers](https://www.sbert.net/).
+
+Forked from [privateGPT](https://github.com/imartinez/privateGPT).
 
 <img width="902" alt="demo" src="https://user-images.githubusercontent.com/721666/236942256-985801c9-25b9-48ef-80be-3acbb4575164.png">
 
@@ -17,13 +19,49 @@ pip3 install -r requirements.txt
 
 2. Run this commands
 ```shell
-cd privateGPT
+cd jimotoGPT
 poetry install
 poetry shell
 ```
 
-Then, download the LLM model and place it in a directory of your choice:
-- LLM: default to [ggml-gpt4all-j-v1.3-groovy.bin](https://gpt4all.io/models/ggml-gpt4all-j-v1.3-groovy.bin). If you prefer a different GPT4All-J compatible model, just download it and reference it in your `.env` file.
+3. Install [zenity](https://github.com/GNOME/zenity)
+```shell
+sudo apt-get install zenity
+# If using Homebrew
+brew install zenity
+```
+
+## Download model
+
+[Download the LLM model](https://huggingface.co/docs/hub/models-downloading)
+
+Loading the model can be done like this, if it's on the Hub and is tied to a [supported library](https://huggingface.co/docs/hub/models-libraries):
+
+Import the `AutoModelForCausalLM` library
+```python
+from transformers import AutoModelForCausalLM
+```
+
+Load the pretrained model
+```python
+model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, revision=MODEL_VERSION)
+
+# For example
+model = AutoModelForCausalLM.from_pretrained("nomic-ai/gpt4all-j", revision="v1.3-groovy")
+```
+
+Save the model to a temp directory
+```python
+model.save_pretrained('./model/')
+```
+Make sure the model is saved as a single `.bin` file.
+
+`NOTE: Models with multiple parts are not supported`.
+
+Then, place the model in a directory of your choice:
+- LLM: default to [ggml-gpt4all-j-v1.3-groovy](https://huggingface.co/nomic-ai/gpt4all-j/tree/v1.3-groovy). If you prefer a different GPT4All-J compatible model, just reference it in your `.env` file.
+
+## Rename environment template
 
 Copy the `example.env` template into `.env`
 ```shell
@@ -83,7 +121,7 @@ Loaded 1 new documents from source_documents
 Split into 90 chunks of text (max. 500 tokens each)
 Creating embeddings. May take some minutes...
 Using embedded DuckDB with persistence: data will be stored in: db
-Ingestion complete! You can now run privateGPT.py to query your documents
+Ingestion complete! You can now run jimotoGPT.py to query your documents
 ```
 
 It will create a `db` folder containing the local vectorstore. Will take 20-30 seconds per document, depending on the size of the document.
@@ -96,7 +134,7 @@ Note: during the ingest process no data leaves your local environment. You could
 In order to ask a question, run a command like:
 
 ```shell
-python privateGPT.py
+python jimotoGPT.py
 ```
 
 And wait for the script to require your input.
@@ -113,14 +151,14 @@ Type `exit` to finish the script.
 
 
 ### CLI
-The script also supports optional command-line arguments to modify its behavior. You can see a full list of these arguments by running the command ```python privateGPT.py --help``` in your terminal.
+The script also supports optional command-line arguments to modify its behavior. You can see a full list of these arguments by running the command ```python jimotoGPT.py --help``` in your terminal.
 
 
 # How does it work?
 Selecting the right local models and the power of `LangChain` you can run the entire pipeline locally, without any data leaving your environment, and with reasonable performance.
 
 - `ingest.py` uses `LangChain` tools to parse the document and create embeddings locally using `HuggingFaceEmbeddings` (`SentenceTransformers`). It then stores the result in a local vector database using `Chroma` vector store.
-- `privateGPT.py` uses a local LLM based on `GPT4All-J` or `LlamaCpp` to understand questions and create answers. The context for the answers is extracted from the local vector store using a similarity search to locate the right piece of context from the docs.
+- `jimotoGPT.py` uses a local LLM based on `GPT4All-J` or `LlamaCpp` to understand questions and create answers. The context for the answers is extracted from the local vector store using a similarity search to locate the right piece of context from the docs.
 - `GPT4All-J` wrapper was introduced in LangChain 0.0.162.
 
 # System Requirements
