@@ -68,16 +68,89 @@ def main():
 
         # Get the answer from the chain
         start = time.time()
+
         print(f"{style.RESET}{fore.WHITE}")
-        res = qa(query)
-        # formattedResult = f"{fore.GREEN}{res['result']}{style.RESET}"
-        answer, docs = res['result'], [] if args.hide_source else res['source_documents']
+        loadingMessage = "Loading..."
+        print(f"{fore.BLACK}{loadingMessage}{style.RESET}")
+
+        # Go up one line and move the cursor to the end of the line
+        print(f"\033[1A\033[{len('Loading...')}C", end="")
+        res = None
+        try:
+            res = qa(query)
+            answer, docs = res['result'], [] if args.hide_source else res['source_documents']
+        except Exception as e:
+            print(f"\n{fore.RED}Error: {e}{style.RESET}\n")
+            continue
+
         end = time.time()
+
+        # Use end to detect if the answer was found.
+        # The idea is to move the cursor to the beginning of the first line,
+        # while removing all the characters from the answer, then to remove
+        # the characters of "Loading..." as well
+        if end - start > 0.5:
+            # Count the number of characters in the answer
+            numberOfCharacters = len(answer)
+
+            # If the answer was not found, print a message and continue
+            if numberOfCharacters == 0:
+                print(f"\n{fore.MAGENTA}Sorry, I don't know the answer to that question.{style.RESET}\n")
+                continue
+
+            # Get the number of characters than can fit on the command line
+            # depending on the size of the code editor window
+            terminalSize = os.get_terminal_size().columns
+
+            def removeLineCharacters(total):
+                for i in range(total):
+                    # Press backspace
+                    print(f"\033[1D\033[K", end="")
+                    # wait for 0.01 seconds
+                    time.sleep(0.01)
+
+            answerChunks = []
+
+            # If the number of characters in the answer is greater than the number of
+            # characters that can fit on the command line, store the answer in
+            # multiple lines with an array of strings
+            if numberOfCharacters > terminalSize:
+                subanswer = [answer[i:i+terminalSize] for i in range(0, len(answer), terminalSize)]
+
+                # Push chunk of the answer to answerChunks array
+                for i in range(len(subanswer)):
+                    answerChunks.append(subanswer[i])
+            else:
+                answerChunks.append(answer)
+
+            # Go through all the answer chunks and use a function
+            # to remove the number of characters in each chunk,
+            # starting from the last chunk and goes to
+            # the first chunk
+            for i in range(len(answerChunks) - 1, -1, -1):
+                removeLineCharacters(len(answerChunks[i]))
+
+                # wait for 0.01 seconds
+                time.sleep(0.01)
+
+                # If the are more chucks to remove, go up one line
+                if i > 0:
+                    print(f"\033[1A", end="")
+
+        # wait for 0.01 seconds before printing the answer
+        time.sleep(0.01)
+
+        # Print the answer after trimming the whitespace from it
+        trimmedAnswer = answer.strip()
+        print(f"\033[{len(loadingMessage)}D\033[K{style.RESET}{fore.WHITE}{trimmedAnswer}{style.RESET}")
+
+        # wait for 0.02 seconds before the next question
+        time.sleep(0.20)
 
         # Ask the user if they want to show the analysis to get the result
         canPrintResult = False
 
-        print(f"\n\n\n{fore.BLACK}Do I show how I got to the answer?{style.RESET}\n")
+        print(f"\n{fore.BLACK}Do I show how I got to the answer?{style.RESET}\n")
 
         resultPrintquestions = [
             inquirer.Confirm('confirm', message=f"{fore.YELLOW}"),
@@ -87,12 +160,12 @@ def main():
         if canPrintResult:
             # Print the result
             questionHeader = "> Question:"
-            print(f"\n{fore.CYAN}{questionHeader}{style.RESET}")
+            print(f"{fore.CYAN}{questionHeader}{style.RESET}")
             print(f"{fore.GREY}{query}{style.RESET}")
 
             answerHeader = f"\n> Answer (took {round(end - start, 2)} s.):"
             print(f"{fore.CYAN}{answerHeader}{style.RESET}")
-            print(f"{style.RESET}{fore.GREY}{answer}{style.RESET}")
+            print(f"{style.RESET}{fore.GREY}{trimmedAnswer}{style.RESET}")
 
             # Print the relevant sources used for the answer
             for document in docs:
