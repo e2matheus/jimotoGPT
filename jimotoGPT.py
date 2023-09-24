@@ -13,6 +13,8 @@ import inquirer
 from yachalk import chalk
 import pycolors
 from pycolors import fore, style
+import threading
+import queue
 
 if not load_dotenv():
     print("Could not load .env file or it is empty. Please check if it exists and is readable.")
@@ -29,21 +31,24 @@ target_source_chunks = int(os.environ.get('TARGET_SOURCE_CHUNKS',4))
 
 from constants import CHROMA_SETTINGS
 
-def getLoadingMessage():
-    message_base = "Generating response"
+BASE_LOADING_MESSAGE = "Generating response"
+
+def getLoadingMessage(stop_event, message_queue):
+    message_base = BASE_LOADING_MESSAGE
     start_time = time.time()
-    max_time = 10
-    end_time = start_time + max_time
-    while time.time() < end_time:
-        percentage = int((time.time() - start_time) / max_time * 100)
-        message = f"{message_base} ({percentage}%)"
-        print(f"\033[{len(message)}D\033[K{fore.BLACK}{message}{style.RESET}")
+
+    # Get the number of characters than can fit on the command line
+    # depending on the size of the code editor window
+    terminalSize = os.get_terminal_size().columns
+
+    while not stop_event.is_set():
+        elapsed_time = int(time.time() - start_time)
+        message = f"{message_base} ({elapsed_time} s.)"
+        print(f"\033[{len(message)}D\033[K{fore.BLACK}{message}")
         time.sleep(0.0025)
         print(f"\033[1A\033[{len(message)}C", end="")
-    message = f"{message_base} (99%)"
-    print(f"\033[{len(message)}D\033[K{fore.BLACK}{message}{style.RESET}")
-    time.sleep(0.01)
 
+    message_queue.put(message)
     return message
 
 def main():
@@ -86,10 +91,14 @@ def main():
         # Get the answer from the chain
         start = time.time()
 
-        print(f"{style.RESET}{fore.WHITE}")
-        loadingMessage = getLoadingMessage()
-        print(f"\033[1A\033[{len(loadingMessage)}C", end="")
+        print(f"{style.RESET}{fore.BLACK}")
+        loadingMessage = f"{BASE_LOADING_MESSAGE} (0 s.)"
+        print(f"\033[{len(loadingMessage)}C", end="")
         print(f"{style.RESET}{fore.GREY}", end="")
+        stop_event = threading.Event()
+        message_queue = queue.Queue()
+        loading_thread = threading.Thread(target=getLoadingMessage, args=(stop_event, message_queue))
+        loading_thread.start()
 
         enhancedQuery = f"{query}. Please, always respond with a single complete paragraph, so don't jump to a new line, and don't use bullet points or lists"
 
@@ -102,6 +111,9 @@ def main():
             continue
 
         end = time.time()
+        stop_event.set()
+        loading_thread.join()
+        loadingMessage = message_queue.get()
 
         # Count the number of characters in the answer
         numberOfCharacters = len(answer)
@@ -109,6 +121,9 @@ def main():
         # Get the number of characters than can fit on the command line
         # depending on the size of the code editor window
         terminalSize = os.get_terminal_size().columns
+
+        print(f"\033[{len(loadingMessage)}D\033[K{fore.BLACK}", end="")
+        print(f"\033[{terminalSize}C", end="")
 
         # Determine how many lines does the answer have
         hasManyLines = numberOfCharacters > terminalSize
@@ -176,7 +191,7 @@ def main():
         if hasManyLines:
             print(f"\033[{terminalSize}C", end="")
             print(f"\033[1A{style.RESET}{fore.BLUE}TEMP{style.RESET}\033[{terminalSize}C", end="")
-            print(f"\033[{numberOfCharacters}D\033[K", end="")
+            print(f"\033[{terminalSize}D\033[K", end="")
         else:
             print(f"\033[{terminalSize}C", end="")
             print(f"\033[1A{style.RESET}{fore.BLUE}{style.RESET}\033[{terminalSize}C", end="")
@@ -187,7 +202,11 @@ def main():
             print(f"\033[{numberOfCharacters}D\033[K")
 
         # Print the answer
-        print(f"\033[1A{style.RESET}{fore.WHITE}{trimmedAnswer}{style.RESET}")
+        print(f"\033[1A{style.RESET}{fore.BLUE}{trimmedAnswer}{style.RESET}")
+
+        # Remove any characters that are left on the next line
+        print(f"\033[{terminalSize}C", end="")
+        print(f"\033[{terminalSize}D\033[K", end="")
 
         # wait for 0.02 seconds before the next question
         time.sleep(0.20)
