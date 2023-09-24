@@ -12,7 +12,7 @@ import time
 import inquirer
 from yachalk import chalk
 import pycolors
-from pycolors import fore, back, style, init
+from pycolors import fore, style
 
 if not load_dotenv():
     print("Could not load .env file or it is empty. Please check if it exists and is readable.")
@@ -38,7 +38,9 @@ def main():
     retriever = db.as_retriever(search_kwargs={"k": target_source_chunks})
     # activate/deactivate the streaming StdOut callback for LLMs
     callbacks = [] if args.mute_stream else [StreamingStdOutCallbackHandler()]
+
     # Prepare the LLM
+    print(f"{fore.GREY}Loading model...")
     match model_type:
         case "LlamaCpp":
             llm = LlamaCpp(model_path=model_path, max_tokens=model_n_ctx, n_batch=model_n_batch, callbacks=callbacks, verbose=False)
@@ -49,6 +51,9 @@ def main():
             raise Exception(f"Model type {model_type} is not supported. Please choose one of the following: LlamaCpp, GPT4All")
 
     qa = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever, return_source_documents= not args.hide_source)
+
+    print(f"{style.RESET}{fore.WHITE}")
+
     # Interactive questions and answers
     while True:
         print(f"\n\n{fore.WHITE}Is there anything I can help you with?{style.RESET}\n")
