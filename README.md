@@ -24,13 +24,6 @@ poetry install
 poetry shell
 ```
 
-3. Install [zenity](https://github.com/GNOME/zenity)
-```shell
-sudo apt-get install zenity
-# If using Homebrew
-brew install zenity
-```
-
 ## Download model
 
 [Download the LLM model](https://huggingface.co/docs/hub/models-downloading)

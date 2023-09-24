@@ -9,6 +9,10 @@ import chromadb
 import os
 import argparse
 import time
+import inquirer
+from yachalk import chalk
+import pycolors
+from pycolors import fore, back, style, init
 
 if not load_dotenv():
     print("Could not load .env file or it is empty. Please check if it exists and is readable.")
@@ -47,33 +51,40 @@ def main():
     qa = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever, return_source_documents= not args.hide_source)
     # Interactive questions and answers
     while True:
-        # Use a dialog window to get input from the user
-        # Makes sure to add the double amount of default width, and allow the
-        # user to type in 5 lines of text
-        dialog = os.popen("zenity --text-info --editable --width=800 --height=100 --title='jimotoGPT' --window-icon='info' --ok-label='Ask' --cancel-label='Exit'")
-        query = dialog.read()
+        print(f"\n\n{fore.WHITE}Is there anything I can help you with?{style.RESET}\n")
+        questions = [
+            inquirer.Text('query', message=f"{fore.YELLOW}", validate=lambda _, x: len(x.strip()) > 0)
+        ]
+        query = inquirer.prompt(questions)['query']
 
-        if query == "exit" or dialog.close() != 0:
+        if query == "exit" or query == "quit":
+            print(f"\n{fore.WHITE}Seems like that's it for now. Goodbye!{style.RESET}\n\n")
             break
-        if query.strip() == "":
-            continue
 
         # Get the answer from the chain
         start = time.time()
+        print(f"{style.RESET}{fore.WHITE}")
         res = qa(query)
+        # formattedResult = f"{fore.GREEN}{res['result']}{style.RESET}"
         answer, docs = res['result'], [] if args.hide_source else res['source_documents']
         end = time.time()
 
         # Print the result
-        print("\n\n> Question:")
-        print(query)
-        print(f"\n> Answer (took {round(end - start, 2)} s.):")
-        print(answer)
+        questionHeader = "> Question:"
+        print(f"\n\n{fore.CYAN}{questionHeader}{style.RESET}")
+        print(f"{fore.GREY}{query}{style.RESET}")
+
+        answerHeader = f"\n> Answer (took {round(end - start, 2)} s.):"
+        print(f"{fore.CYAN}{answerHeader}{style.RESET}")
+        print(f"{style.RESET}{fore.GREY}{answer}{style.RESET}")
 
         # Print the relevant sources used for the answer
         for document in docs:
-            print("\n> " + document.metadata["source"] + ":")
-            print(document.page_content)
+            metadataSource = document.metadata["source"]
+            print(f"\n{fore.BLUE}> {metadataSource}:{style.RESET}")
+            print(f"{fore.GREY}{document.page_content}{style.RESET}")
+
+        print(f"{style.RESET}{fore.WHITE}")
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='jimotoGPT: Ask questions to your documents without an internet connection, '

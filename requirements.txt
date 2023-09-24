@@ -12,3 +12,6 @@ pandoc==2.3
 pypandoc==1.11
 tqdm==4.66.1
 sentence_transformers==2.2.2
+inquirer==3.1.3
+yachalk==0.1.5
+pycoloredprompt==1.0
