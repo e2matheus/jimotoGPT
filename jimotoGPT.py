@@ -56,7 +56,7 @@ def main():
 
     # Interactive questions and answers
     while True:
-        print(f"\n\n{fore.WHITE}Is there anything I can help you with?{style.RESET}\n")
+        print(f"\n{fore.WHITE}Is there anything I can help you with?{style.RESET}\n")
         questions = [
             inquirer.Text('query', message=f"{fore.YELLOW}", validate=lambda _, x: len(x.strip()) > 0)
         ]
@@ -74,20 +74,31 @@ def main():
         answer, docs = res['result'], [] if args.hide_source else res['source_documents']
         end = time.time()
 
-        # Print the result
-        questionHeader = "> Question:"
-        print(f"\n\n{fore.CYAN}{questionHeader}{style.RESET}")
-        print(f"{fore.GREY}{query}{style.RESET}")
+        # Ask the user if they want to show the analysis to get the result
+        canPrintResult = False
 
-        answerHeader = f"\n> Answer (took {round(end - start, 2)} s.):"
-        print(f"{fore.CYAN}{answerHeader}{style.RESET}")
-        print(f"{style.RESET}{fore.GREY}{answer}{style.RESET}")
+        print(f"\n\n\n{fore.BLACK}Do I show how I got to the answer?{style.RESET}\n")
 
-        # Print the relevant sources used for the answer
-        for document in docs:
-            metadataSource = document.metadata["source"]
-            print(f"\n{fore.BLUE}> {metadataSource}:{style.RESET}")
-            print(f"{fore.GREY}{document.page_content}{style.RESET}")
+        resultPrintquestions = [
+            inquirer.Confirm('confirm', message=f"{fore.YELLOW}"),
+        ]
+        canPrintResult = inquirer.prompt(resultPrintquestions)['confirm']
+
+        if canPrintResult:
+            # Print the result
+            questionHeader = "> Question:"
+            print(f"\n{fore.CYAN}{questionHeader}{style.RESET}")
+            print(f"{fore.GREY}{query}{style.RESET}")
+
+            answerHeader = f"\n> Answer (took {round(end - start, 2)} s.):"
+            print(f"{fore.CYAN}{answerHeader}{style.RESET}")
+            print(f"{style.RESET}{fore.GREY}{answer}{style.RESET}")
+
+            # Print the relevant sources used for the answer
+            for document in docs:
+                metadataSource = document.metadata["source"]
+                print(f"\n{fore.BLUE}> {metadataSource}:{style.RESET}")
+                print(f"{fore.GREY}{document.page_content}{style.RESET}")
 
         print(f"{style.RESET}{fore.WHITE}")
 
