@@ -88,9 +88,11 @@ def main():
 
     print(f"\n{style.RESET}{fore.WHITE}Great! ", end="")
 
+    question_segment = ""
+
     # Interactive questions and answers
     while True:
-        print(f"{fore.WHITE}Is there anything I can help you with?{style.RESET}\n")
+        print(f"{fore.WHITE}Is there anything{question_segment} I can help you with?{style.RESET}\n")
         questions = [
             inquirer.Text('query', message=f"{fore.YELLOW}", validate=lambda _, x: len(x.strip()) > 0)
         ]
@@ -255,6 +257,8 @@ def main():
                 print(f"{fore.GREY}{document.page_content}{style.RESET}")
         else:
             print(f"\033[1A", end="")
+
+        question_segment = " else"
 
         print(f"{style.RESET}{fore.WHITE}\n")
 
