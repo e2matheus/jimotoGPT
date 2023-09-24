@@ -76,9 +76,21 @@ def main():
 
     print(f"{style.RESET}{fore.WHITE}")
 
+    # Ask the user to show the response generation process or not
+    canSlowDownProcess = False
+
+    print(f"\nWelcome! Before we start, do I break down the steps I follow after I come up with an answer?\n")
+
+    processSlowDownQuestions = [
+        inquirer.Confirm('confirm', message=f"{fore.YELLOW}"),
+    ]
+    canShowGenerationProcess = inquirer.prompt(processSlowDownQuestions)['confirm']
+
+    print(f"\n{style.RESET}{fore.WHITE}Great! ", end="")
+
     # Interactive questions and answers
     while True:
-        print(f"\n{fore.WHITE}Is there anything I can help you with?{style.RESET}\n")
+        print(f"{fore.WHITE}Is there anything I can help you with?{style.RESET}\n")
         questions = [
             inquirer.Text('query', message=f"{fore.YELLOW}", validate=lambda _, x: len(x.strip()) > 0)
         ]
@@ -142,8 +154,10 @@ def main():
                 for i in range(total):
                     # Press backspace
                     print(f"\033[1D\033[K", end="")
-                    # wait for 0.01 seconds
-                    time.sleep(0.01)
+
+                    if canSlowDownProcess:
+                        # wait for 0.01 seconds
+                        time.sleep(0.01)
 
             answerChunks = []
 
@@ -169,8 +183,9 @@ def main():
 
                 removeLineCharacters(len(answerChunks[i])+terminalSize)
 
-                # wait for 0.01 seconds
-                time.sleep(0.01)
+                if canSlowDownProcess:
+                    # wait for 0.01 seconds
+                    time.sleep(0.01)
 
                 # If the are more chucks to remove, go up one line
                 if i > 0:
@@ -180,8 +195,9 @@ def main():
             print(f"\033[{terminalSize}C", end="")
             print(f"\033[{numberOfCharacters}D\033[K")
 
-        # wait for 0.01 seconds before printing the answer
-        time.sleep(0.01)
+        if canSlowDownProcess:
+            # wait for 0.01 seconds before printing the answer
+            time.sleep(0.01)
 
         # Get the answer after trimming the whitespace from it
         trimmedAnswer = answer.strip()
@@ -202,14 +218,15 @@ def main():
             print(f"\033[{numberOfCharacters}D\033[K")
 
         # Print the answer
-        print(f"\033[1A{style.RESET}{fore.BLUE}{trimmedAnswer}{style.RESET}")
+        print(f"\033[1A{style.RESET}{fore.WHITE}{trimmedAnswer}{style.RESET}")
 
         # Remove any characters that are left on the next line
         print(f"\033[{terminalSize}C", end="")
         print(f"\033[{terminalSize}D\033[K", end="")
 
-        # wait for 0.02 seconds before the next question
-        time.sleep(0.20)
+        if canSlowDownProcess:
+            # wait for 0.02 seconds before the next question
+            time.sleep(0.20)
 
         # Ask the user if they want to show the analysis to get the result
         canPrintResult = False
@@ -239,7 +256,7 @@ def main():
         else:
             print(f"\033[1A", end="")
 
-        print(f"{style.RESET}{fore.WHITE}")
+        print(f"{style.RESET}{fore.WHITE}\n")
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='jimotoGPT: Ask questions to your documents without an internet connection, '
