@@ -29,6 +29,23 @@ target_source_chunks = int(os.environ.get('TARGET_SOURCE_CHUNKS',4))
 
 from constants import CHROMA_SETTINGS
 
+def getLoadingMessage():
+    message_base = "Generating response"
+    start_time = time.time()
+    max_time = 10
+    end_time = start_time + max_time
+    while time.time() < end_time:
+        percentage = int((time.time() - start_time) / max_time * 100)
+        message = f"{message_base} ({percentage}%)"
+        print(f"\033[{len(message)}D\033[K{fore.BLACK}{message}{style.RESET}")
+        time.sleep(0.0025)
+        print(f"\033[1A\033[{len(message)}C", end="")
+    message = f"{message_base} (99%)"
+    print(f"\033[{len(message)}D\033[K{fore.BLACK}{message}{style.RESET}")
+    time.sleep(0.01)
+
+    return message
+
 def main():
     # Parse the command line arguments
     args = parse_arguments()
@@ -62,7 +79,7 @@ def main():
         ]
         query = inquirer.prompt(questions)['query']
 
-        if query == "exit" or query == "quit":
+        if query == "exit" or query == "quit" or query == "no":
             print(f"\n{fore.WHITE}Seems like that's it for now. Goodbye!{style.RESET}\n\n")
             break
 
@@ -70,14 +87,15 @@ def main():
         start = time.time()
 
         print(f"{style.RESET}{fore.WHITE}")
-        loadingMessage = "Loading..."
-        print(f"{fore.BLACK}{loadingMessage}{style.RESET}")
+        loadingMessage = getLoadingMessage()
+        print(f"\033[1A\033[{len(loadingMessage)}C", end="")
+        print(f"{style.RESET}{fore.GREY}", end="")
 
-        # Go up one line and move the cursor to the end of the line
-        print(f"\033[1A\033[{len('Loading...')}C", end="")
+        enhancedQuery = f"{query}. Please, always respond with a single complete paragraph, so don't jump to a new line, and don't use bullet points or lists"
+
         res = None
         try:
-            res = qa(query)
+            res = qa(enhancedQuery)
             answer, docs = res['result'], [] if args.hide_source else res['source_documents']
         except Exception as e:
             print(f"\n{fore.RED}Error: {e}{style.RESET}\n")
@@ -85,22 +103,25 @@ def main():
 
         end = time.time()
 
+        # Count the number of characters in the answer
+        numberOfCharacters = len(answer)
+
+        # Get the number of characters than can fit on the command line
+        # depending on the size of the code editor window
+        terminalSize = os.get_terminal_size().columns
+
+        # Determine how many lines does the answer have
+        hasManyLines = numberOfCharacters > terminalSize
+
         # Use end to detect if the answer was found.
         # The idea is to move the cursor to the beginning of the first line,
         # while removing all the characters from the answer, then to remove
-        # the characters of "Loading..." as well
+        # the characters of "Generating response (99%)" as well
         if end - start > 0.5:
-            # Count the number of characters in the answer
-            numberOfCharacters = len(answer)
-
             # If the answer was not found, print a message and continue
             if numberOfCharacters == 0:
                 print(f"\n{fore.MAGENTA}Sorry, I don't know the answer to that question.{style.RESET}\n")
                 continue
-
-            # Get the number of characters than can fit on the command line
-            # depending on the size of the code editor window
-            terminalSize = os.get_terminal_size().columns
 
             def removeLineCharacters(total):
                 for i in range(total):
@@ -114,7 +135,7 @@ def main():
             # If the number of characters in the answer is greater than the number of
             # characters that can fit on the command line, store the answer in
             # multiple lines with an array of strings
-            if numberOfCharacters > terminalSize:
+            if hasManyLines:
                 subanswer = [answer[i:i+terminalSize] for i in range(0, len(answer), terminalSize)]
 
                 # Push chunk of the answer to answerChunks array
@@ -128,7 +149,10 @@ def main():
             # starting from the last chunk and goes to
             # the first chunk
             for i in range(len(answerChunks) - 1, -1, -1):
-                removeLineCharacters(len(answerChunks[i]))
+                # Move to the end of the line
+                print(f"\033[{terminalSize}C", end="")
+
+                removeLineCharacters(len(answerChunks[i])+terminalSize)
 
                 # wait for 0.01 seconds
                 time.sleep(0.01)
@@ -137,12 +161,33 @@ def main():
                 if i > 0:
                     print(f"\033[1A", end="")
 
+        if hasManyLines:
+            print(f"\033[{terminalSize}C", end="")
+            print(f"\033[{numberOfCharacters}D\033[K")
+
         # wait for 0.01 seconds before printing the answer
         time.sleep(0.01)
 
-        # Print the answer after trimming the whitespace from it
+        # Get the answer after trimming the whitespace from it
         trimmedAnswer = answer.strip()
-        print(f"\033[{len(loadingMessage)}D\033[K{style.RESET}{fore.WHITE}{trimmedAnswer}{style.RESET}")
+
+        # If number of characters in the answer is greater than the number of
+        # characters that can fit on the command line, print a new line
+        if hasManyLines:
+            print(f"\033[{terminalSize}C", end="")
+            print(f"\033[1A{style.RESET}{fore.BLUE}TEMP{style.RESET}\033[{terminalSize}C", end="")
+            print(f"\033[{numberOfCharacters}D\033[K", end="")
+        else:
+            print(f"\033[{terminalSize}C", end="")
+            print(f"\033[1A{style.RESET}{fore.BLUE}{style.RESET}\033[{terminalSize}C", end="")
+            print(f"\033[{numberOfCharacters}D\033[K")
+            print(f"\033[{terminalSize}C", end="")
+            print(f"\033[{numberOfCharacters}D\033[K", end="")
+            print(f"\033[{terminalSize}C", end="")
+            print(f"\033[{numberOfCharacters}D\033[K")
+
+        # Print the answer
+        print(f"\033[1A{style.RESET}{fore.WHITE}{trimmedAnswer}{style.RESET}")
 
         # wait for 0.02 seconds before the next question
         time.sleep(0.20)
@@ -161,7 +206,7 @@ def main():
             # Print the result
             questionHeader = "> Question:"
             print(f"{fore.CYAN}{questionHeader}{style.RESET}")
-            print(f"{fore.GREY}{query}{style.RESET}")
+            print(f"{fore.GREY}{enhancedQuery}{style.RESET}")
 
             answerHeader = f"\n> Answer (took {round(end - start, 2)} s.):"
             print(f"{fore.CYAN}{answerHeader}{style.RESET}")
@@ -172,6 +217,8 @@ def main():
                 metadataSource = document.metadata["source"]
                 print(f"\n{fore.BLUE}> {metadataSource}:{style.RESET}")
                 print(f"{fore.GREY}{document.page_content}{style.RESET}")
+        else:
+            print(f"\033[1A", end="")
 
         print(f"{style.RESET}{fore.WHITE}")
 
